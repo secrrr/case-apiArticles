@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+    "time"
 
 	"github.com/joho/godotenv"
 	_ "github.com/lib/pq"
@@ -26,6 +27,10 @@ func ConnectDB() *sql.DB {
     if err := db.Ping(); err != nil {
         log.Fatal("Database tidak merespon:", err)
     }
+
+    db.SetMaxOpenConns(25)
+    db.SetMaxIdleConns(25)
+    db.SetConnMaxLifetime(5 * time.Minute)
 
 	fmt.Println("Koneksi database berhasil!")
     
