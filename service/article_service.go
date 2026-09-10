@@ -6,11 +6,9 @@ import (
 	"api-articles/repository"
 )
 
-// untuk memberitahu ke modul luar, jika mau menggunakan service ini maka bisa menggunakan 2 func ini
-// bersama parameternya
 type ArticleService interface {
 	CreateArticle(req models.ArticleRequest) error
-	GetArticles(searchQuery, authorName string) ([]models.Article, error)
+	GetArticles(searchQuery, authorName string, limit, offset int) ([]models.Article, error)
 }
 
 type articleService struct {
@@ -23,7 +21,7 @@ func NewArticleService(repo repository.ArticleRepository) ArticleService {
 
 func (s *articleService) CreateArticle(req models.ArticleRequest) error {
 	if req.Title == "" || req.Body == "" {
-		return errors.New("title dan body tidak boleh kosong")
+		return errors.New("title dan body wajib diisi")
 	}
 	if len(req.AuthorID) == 0 {
 		return errors.New("author_id wajib diisi")
@@ -31,7 +29,7 @@ func (s *articleService) CreateArticle(req models.ArticleRequest) error {
 	return s.repo.Create(req)
 }
 
-func (s *articleService) GetArticles(searchQuery, authorName string) ([]models.Article, error) {
-	return s.repo.FindAll(searchQuery, authorName)
+func (s *articleService) GetArticles(searchQuery, authorName string, limit, offset int) ([]models.Article, error) {
+	return s.repo.FindAll(searchQuery, authorName, limit, offset)
 }
 

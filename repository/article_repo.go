@@ -8,7 +8,7 @@ import (
 
 type ArticleRepository interface {
 	Create(article models.ArticleRequest) error
-	FindAll(searchQuery, authorName string) ([]models.Article, error)
+	FindAll(searchQuery, authorName string, limit, offset int) ([]models.Article, error)
 }
 
 type articleRepository struct {
@@ -26,7 +26,7 @@ func (r *articleRepository) Create(req models.ArticleRequest) error {
 	return err
 }
 
-func (r *articleRepository) FindAll(searchQuery, authorName string) ([]models.Article, error) {
+func (r *articleRepository) FindAll(searchQuery, authorName string, limit, offset int) ([]models.Article, error) {
 	baseQuery := `
 		SELECT a.id, a.title, a.body, a.created_at, a.author_id, u.name 
 		FROM articles a 
@@ -36,22 +36,24 @@ func (r *articleRepository) FindAll(searchQuery, authorName string) ([]models.Ar
 	var args []interface{}
 	counter := 1
 
-	// Filter pencarian berdasarkan judul atau isi artikel (case-insensitive)
 	if searchQuery != "" {
-		baseQuery += fmt.Sprintf(" AND (a.title ILIKE $%d OR a.body ILIKE $%d)", counter, counter+1)
-		args = append(args, "%"+searchQuery+"%", "%"+searchQuery+"%")
-		counter += 2
+		// CREATE INDEX articles_fts_idx ON articles USING GIN (to_tsvector('simple', title || ' ' || body));
+		// menggunakan fitur full text search milik postgresql
+		baseQuery += fmt.Sprintf(" AND to_tsvector('simple', a.title || ' ' || a.body) @@ plainto_tsquery('simple', $%d)", counter)
+		args = append(args, searchQuery)
+		counter ++
 	}
 
 	// Filter pencarian berdasarkan nama author
 	if authorName != "" {
+		// nama tidak bisa menggunakan fts, dikarenakan gaada bentuk dasarnya
 		baseQuery += fmt.Sprintf(" AND u.name ILIKE $%d", counter)
 		args = append(args, "%"+authorName+"%")
 		counter++
 	}
 
-	// Diurutkan dari yang terbaru (sesuai spesifikasi gambar)
-	baseQuery += " ORDER BY a.created_at DESC"
+	baseQuery += fmt.Sprintf(" ORDER BY a.created_at DESC LIMIT $%d OFFSET $%d", counter, counter+1)
+	args = append(args, limit, offset)
 
 	rows, err := r.db.Query(baseQuery, args...)
 	if err != nil {
@@ -59,7 +61,7 @@ func (r *articleRepository) FindAll(searchQuery, authorName string) ([]models.Ar
 	}
 	defer rows.Close()
 
-	articles := []models.Article{} // Inisialisasi slice kosong agar tidak return null
+	articles := []models.Article{}
 
 	for rows.Next() {
 		var art models.Article

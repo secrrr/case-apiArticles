@@ -3,11 +3,13 @@ package handler
 import (
 	"encoding/json"
 	"net/http"
+	"strconv"
+
 	"api-articles/models"
 	"api-articles/service"
 )
 
-// blueprint articleservice yang digunakan untuk function get n post article
+// blueprint articleservice yang digunakan untuk function create n get article
 type ArticleHandler struct {
 	service service.ArticleService
 }
@@ -39,12 +41,25 @@ func (h *ArticleHandler) Create(w http.ResponseWriter, r *http.Request) {
 	json.NewEncoder(w).Encode(map[string]string{"message": "Artikel berhasil dibuat"})
 }
 
-// handler untuk mendapatkan seluruh article (GET) serta untuk mencari artikel berdasarkan body/title && mencari authornya
+// handler untuk mendapatkan article (GET) serta untuk mencari artikel berdasarkan body/title && mencari authornya
 func (h *ArticleHandler) GetAll(w http.ResponseWriter, r *http.Request) {
 	queryParam := r.URL.Query().Get("query")
 	authorParam := r.URL.Query().Get("author")
 
-	articles, err := h.service.GetArticles(queryParam, authorParam)
+	// configuration page&limit on parameter articles
+	page, _ := strconv.Atoi(r.URL.Query().Get("page"))
+	if page <= 0{
+		page = 1
+	}
+
+	limit, _ := strconv.Atoi(r.URL.Query().Get("limit"))
+	if limit <= 0{
+		limit = 10
+	}
+
+	offset := (page - 1) * limit
+
+	articles, err := h.service.GetArticles(queryParam, authorParam, limit, offset)
 	if err != nil {
 		http.Error(w, err.Error(), http.StatusInternalServerError)
 		return
